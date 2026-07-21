@@ -78,7 +78,46 @@ class SubscriberService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onStartCommand executed with startId: $startId")
-
+        // ==================== 免打扰（自动休眠）修改开始 ====================
+        val calendar = java.util.Calendar.getInstance()
+        val currentHour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+        
+        // 设置免打扰时段（你可以修改这里的数字，例如 1 代表 01:00，6 代表 06:00）
+        val startHour = 1
+        val endHour = 6
+        
+        if (currentHour in startHour until endHour) {
+            Log.d("ntfyQuietHours", "处于凌晨免打扰时间 ($startHour:00 - $endHour:00)，切断 WS 并休眠")
+        
+            // 1. 计算离 06:00 还有多长时间，用 AlarmManager 预约准点唤醒闹钟
+            val wakeCalendar = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, endHour)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+            
+            val alarmManager = getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager
+            val alarmIntent = android.content.Intent(this, QuietHoursReceiver::class.java)
+            val pendingIntent = android.app.PendingIntent.getBroadcast(
+                this,
+                1001,
+                alarmIntent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+        
+            // 设置精准闹钟（即便系统休眠也会触发）
+            alarmManager.setExactAndAllowWhileIdle(
+                android.app.AlarmManager.RTC_WAKEUP,
+                wakeCalendar.timeInMillis,
+                pendingIntent
+            )
+        
+            // 2. 主动切断连接并停止该服务（绝不产生后台死循环与 WS 心跳）
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        // ==================== 免打扰（自动休眠）修改结束 ====================
         // Safety check: ensure we're in foreground state. This handles edge cases where
         // onCreate() may not have been called or completed before onStartCommand(). See #1520.
         if (serviceNotification == null) {
