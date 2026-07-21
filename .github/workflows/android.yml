@@ -27,16 +27,22 @@ jobs:
     - name: Build F-Droid Release APK
       run: ./gradlew assembleFdroidRelease --stacktrace
 
-    # 2. 自动生成密钥并签名（无需手动配置 Secrets）
-    - name: Sign Release APK
-      uses: rromang/action-sing-apk@v1
-      id: sign_app
-      with:
-        releaseDirectory: app/build/outputs/apk/fdroid/release
+    # 2. 使用 Android 官方工具进行原生签名（无需任何第三方 Action，绝对不报错）
+    - name: Sign APK with Native Android Tools
+      run: |
+        # 生成临时的证书密钥
+        keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+        
+        # 寻找预装的 apksigner 工具并完成 APK 签名
+        APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | head -n 1)
+        $APKSIGNER sign --ks debug.keystore --ks-pass pass:android app/build/outputs/apk/fdroid/release/app-fdroid-release-unsigned.apk
+        
+        # 重命名为最终可安装的文件
+        mv app/build/outputs/apk/fdroid/release/app-fdroid-release-unsigned.apk app/build/outputs/apk/fdroid/release/app-fdroid-release-signed.apk
 
-    # 3. 上传签名好的 APK（位于 signed 目录下）
-    - name: Upload Signed Release APK
+    # 3. 上传可以直接安装的 Release APK
+    - name: Upload Signed APK
       uses: actions/upload-artifact@v4
       with:
         name: ntfy-quiet-hours-release-signed
-        path: app/build/outputs/apk/fdroid/release/signed/*.apk
+        path: app/build/outputs/apk/fdroid/release/app-fdroid-release-signed.apk
