@@ -27,16 +27,16 @@ jobs:
     - name: Build F-Droid Release APK
       run: ./gradlew assembleFdroidRelease --stacktrace
 
-    # 2. 自动签名（无需任何配置，自动搞定）
+    # 2. 自动生成密钥并签名（无需手动配置 Secrets）
     - name: Sign Release APK
-      uses: r3d-soft/sign-android-release@v1
+      uses: rromang/action-sing-apk@v1
       id: sign_app
       with:
         releaseDirectory: app/build/outputs/apk/fdroid/release
 
-    # 3. 上传可以直接安装的 Release APK
-    - name: Upload Signed APK
+    # 3. 上传签名好的 APK（位于 signed 目录下）
+    - name: Upload Signed Release APK
       uses: actions/upload-artifact@v4
       with:
         name: ntfy-quiet-hours-release-signed
-        path: ${{ steps.sign_app.outputs.signedFile }}
+        path: app/build/outputs/apk/fdroid/release/signed/*.apk
