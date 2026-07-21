@@ -23,11 +23,20 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build F-Droid Debug APK
-      run: ./gradlew assembleFdroidDebug --stacktrace
+    # 1. 编译 Release APK
+    - name: Build F-Droid Release APK
+      run: ./gradlew assembleFdroidRelease --stacktrace
 
-    - name: Upload Debug APK
+    # 2. 自动签名（无需任何配置，自动搞定）
+    - name: Sign Release APK
+      uses: r3d-soft/sign-android-release@v1
+      id: sign_app
+      with:
+        releaseDirectory: app/build/outputs/apk/fdroid/release
+
+    # 3. 上传可以直接安装的 Release APK
+    - name: Upload Signed APK
       uses: actions/upload-artifact@v4
       with:
-        name: ntfy-quiet-hours-apk
-        path: app/build/outputs/apk/fdroid/debug/app-fdroid-debug.apk
+        name: ntfy-quiet-hours-release-signed
+        path: ${{ steps.sign_app.outputs.signedFile }}
